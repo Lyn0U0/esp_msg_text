@@ -3,14 +3,19 @@ import cors from 'cors';
 import { createClient } from 'redis';
 
 const app = express();
-app.use(cors());          // 允許前端跨網域呼叫
-app.use(express.json());  // 解析 JSON
+app.use(cors());
+app.use(express.json());
 
-// 連 Valkey/Redis
 const redis = createClient({ url: process.env.REDIS_URL });
 await redis.connect();
 
-// 新增筆記
+/* 讀取全部 */
+app.get('/notes', async (_, res) => {
+  const data = await redis.hGetAll('notes');
+  res.json(data);
+});
+
+/* 新增 */
 app.post('/notes', async (req, res) => {
   const text = (req.body.text || '').trim();
   if (!text) return res.status(400).json({ error: 'empty' });
@@ -20,10 +25,24 @@ app.post('/notes', async (req, res) => {
   res.json({ id, text });
 });
 
-// 讀取全部筆記
-app.get('/notes', async (_, res) => {
-  const data = await redis.hGetAll('notes');
-  res.json(data);
+/* 更新 */
+app.put('/notes/:id', async (req, res) => {
+  const { id } = req.params;
+  const text = (req.body.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'empty' });
+
+  const exists = await redis.hExists('notes', id);
+  if (!exists) return res.status(404).json({ error: 'not found' });
+
+  await redis.hSet('notes', id, text);
+  res.json({ id, text });
+});
+
+/* 刪除 */
+app.delete('/notes/:id', async (req, res) => {
+  const { id } = req.params;
+  await redis.hDel('notes', id);
+  res.status(204).end();
 });
 
 app.listen(process.env.PORT || 3000, () =>
