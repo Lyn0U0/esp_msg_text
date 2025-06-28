@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>簡易筆記</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    textarea { width: 100%; height: 6rem; }
+    button { margin-top: .5rem; }
+    ul { margin-top: 1rem; padding-left: 1rem; }
+    li { margin-bottom: .5rem; }
+  </style>
+</head>
+<body>
+  <form id="noteForm">
+    <textarea id="note" placeholder="輸入文字…"></textarea>
+    <br />
+    <button type="submit">儲存</button>
+  </form>
+
+  <ul id="list"></ul>
+
+  <script>
+    const $form = document.getElementById('noteForm');
+    const $note = document.getElementById('note');
+    const $list = document.getElementById('list');
+
+    // 讀取 localStorage 並渲染清單
+    function refresh() {
+      $list.innerHTML = '';
+      const data = JSON.parse(localStorage.getItem('notes') || '{}');
+      Object.entries(data).forEach(([id, text]) => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        $list.appendChild(li);
+      });
+    }
+
+    // 提交表單 -> 儲存筆記
+    $form.addEventListener('submit', e => {
+      e.preventDefault();
+      const text = $note.value.trim();
+      if (!text) return;
+
+      const data = JSON.parse(localStorage.getItem('notes') || '{}');
+      data[Date.now()] = text;
+      localStorage.setItem('notes', JSON.stringify(data));
+
+      $note.value = '';
+      refresh();
+    });
+
+    // 初始載入
+    refresh();
+  </script>
+</body>
+</html>
