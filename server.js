@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { createClient } from 'redis';
+import iconv from 'iconv-lite';
 
 const app = express();
 app.use(cors());
@@ -43,6 +44,25 @@ app.delete('/notes/:id', async (req, res) => {
   const { id } = req.params;
   await redis.hDel('notes', id);
   res.status(204).end();
+});
+
+/* 取得最新一筆並回傳 BIG5 HEX 字串 */
+app.get('/latest-big5', async (_, res) => {
+  const data = await redis.hGetAll('notes');
+  const ids = Object.keys(data);
+  if (ids.length === 0) {
+    return res.status(404).json({ error: 'no notes' });
+  }
+  // 找最新（字串排序）
+  const latestId = ids.sort().pop();
+  const text = data[latestId];
+
+  // UTF-8 → BIG5 編碼
+  const buf = iconv.encode(text, 'big5');
+  // 轉成大寫 HEX
+  const hex = buf.toString('hex').toUpperCase();
+
+  res.json({ note: hex });
 });
 
 app.listen(process.env.PORT || 3000, () =>
