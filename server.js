@@ -47,6 +47,7 @@ app.delete('/notes/:id', async (req, res) => {
 });
 
 /* 取得最新一筆並回傳 BIG5 HEX 字串 */
+/* 取得最新一筆並回傳 BIG5 HEX 字串，若是 QR: 則直接傳明碼 */
 app.get('/latest-big5', async (_, res) => {
   const data = await redis.hGetAll('notes');
   const ids = Object.keys(data);
@@ -57,13 +58,20 @@ app.get('/latest-big5', async (_, res) => {
   const latestId = ids.sort().pop();
   const text = data[latestId];
 
-  // UTF-8 → BIG5 編碼
+  // === 加這段判斷 ===
+  if (text.startsWith('QR:')) {
+    // 直接傳明碼
+    return res.json({ note: text });
+  }
+  // =================
+
+  // 其餘內容轉 BIG5 HEX
   const buf = iconv.encode(text, 'big5');
-  // 轉成大寫 HEX
   const hex = buf.toString('hex').toUpperCase();
 
   res.json({ note: hex });
 });
+
 
 app.listen(process.env.PORT || 3000, () =>
   console.log('API running')
