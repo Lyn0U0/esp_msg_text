@@ -12,6 +12,7 @@
     li      { margin-bottom: .5rem; border: 1px solid #ddd; padding: .5rem; border-radius: .25rem; }
     .actions { float: right; }
     .actions button { margin-left: .25rem; }
+    h2 { margin-top: 2rem; }
   </style>
 </head>
 <body>
@@ -22,43 +23,71 @@
 
   <ul id="list"></ul>
 
+  <h2>系統狀態</h2>
+  <ul id="statusList"></ul>
+
   <script>
     const API = 'https://esp-msg-text.onrender.com';
 
-    const $form = document.getElementById('noteForm');
-    const $note = document.getElementById('note');
-    const $list = document.getElementById('list');
+    const $form       = document.getElementById('noteForm');
+    const $note       = document.getElementById('note');
+    const $list       = document.getElementById('list');
+    const $statusList = document.getElementById('statusList');
 
-    /* 讀取並渲染 */
+    /* 讀取並渲染筆記列表 */
     async function refresh() {
-      const data = await fetch(`${API}/notes`).then(r => r.json());
-      $list.innerHTML = '';
-      Object.entries(data).forEach(([id, text]) => {
-        const li = document.createElement('li');
-        li.dataset.id = id;
-        li.innerHTML = `
-          <span class="text">${text}</span>
-          <span class="actions">
-            <button class="edit">編輯</button>
-            <button class="del">刪除</button>
-          </span>
-        `;
-        $list.appendChild(li);
-      });
+      try {
+        const data = await fetch(`${API}/notes`).then(r => r.json());
+        $list.innerHTML = '';
+        Object.entries(data).forEach(([id, text]) => {
+          const li = document.createElement('li');
+          li.dataset.id = id;
+          li.innerHTML = `
+            <span class="text">${text}</span>
+            <span class="actions">
+              <button class="edit">編輯</button>
+              <button class="del">刪除</button>
+            </span>
+          `;
+          $list.appendChild(li);
+        });
+      } catch (e) {
+        console.error('Fetch notes error', e);
+      }
     }
 
-    /* 新增 */
+    /* 讀取並渲染系統狀態 */
+    async function refreshStatus() {
+      try {
+        const data = await fetch(`${API}/status`).then(r => r.json());
+        $statusList.innerHTML = '';
+        data.forEach(({ ts, message }) => {
+          const d  = new Date(ts);
+          const li = document.createElement('li');
+          li.textContent = `[${d.toLocaleTimeString()}] ${message}`;
+          $statusList.appendChild(li);
+        });
+      } catch (e) {
+        console.error('Fetch status error', e);
+      }
+    }
+
+    /* 新增筆記 */
     $form.addEventListener('submit', async e => {
       e.preventDefault();
       const txt = $note.value.trim();
       if (!txt) return;
-      await fetch(`${API}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: txt })
-      });
-      $note.value = '';
-      refresh();
+      try {
+        await fetch(`${API}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: txt })
+        });
+        $note.value = '';
+        refresh();
+      } catch (e) {
+        console.error('Add note error', e);
+      }
     });
 
     /* 編輯 & 刪除 - 事件委派 */
@@ -66,27 +95,36 @@
       const id = e.target.closest('li')?.dataset.id;
       if (!id) return;
 
-      /* 刪除 */
-      if (e.target.classList.contains('del')) {
-        await fetch(`${API}/notes/${id}`, { method: 'DELETE' });
-        refresh();
-      }
+      try {
+        /* 刪除 */
+        if (e.target.classList.contains('del')) {
+          await fetch(`${API}/notes/${id}`, { method: 'DELETE' });
+          refresh();
+        }
 
-      /* 編輯 */
-      if (e.target.classList.contains('edit')) {
-        const oldText = e.target.closest('li').querySelector('.text').textContent;
-        const newText = prompt('修改內容：', oldText) ?? '';
-        if (!newText.trim() || newText === oldText) return;
-        await fetch(`${API}/notes/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: newText.trim() })
-        });
-        refresh();
+        /* 編輯 */
+        if (e.target.classList.contains('edit')) {
+          const oldText = e.target.closest('li').querySelector('.text').textContent;
+          const newText = prompt('修改內容：', oldText) ?? '';
+          if (!newText.trim() || newText === oldText) return;
+          await fetch(`${API}/notes/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: newText.trim() })
+          });
+          refresh();
+        }
+      } catch (e) {
+        console.error('Edit/Delete note error', e);
       }
     });
 
+    // 初始載入
     refresh();
+    refreshStatus();
+
+    // 每 10 秒更新一次系統狀態
+    setInterval(refreshStatus, 10000);
   </script>
 </body>
 </html>

@@ -72,6 +72,28 @@ app.get('/latest-big5', async (_, res) => {
   res.json({ note: hex });
 });
 
+// 1) 回報狀態 （ESP POST 這裡）
+app.post('/status', async (req, res) => {
+  const msg = (req.body.message || '').trim();
+  if (!msg) return res.status(400).json({ error: 'empty message' });
+
+  const entry = JSON.stringify({
+    ts: Date.now(),
+    message: msg
+  });
+  // Push 到 list 'status'，只保留最新 50 筆
+  await redis.lPush('status', entry);
+  await redis.lTrim('status', 0, 49);
+  res.json({ ok: true });
+});
+
+// 2) 取得狀態清單
+app.get('/status', async (_, res) => {
+  const raw = await redis.lRange('status', 0, -1);
+  // 轉成 JSON array
+  const arr = raw.map(s => JSON.parse(s));
+  res.json(arr);
+});
 
 app.listen(process.env.PORT || 3000, () =>
   console.log('API running')
