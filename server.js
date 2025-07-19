@@ -75,17 +75,18 @@ app.get('/latest-big5', async (_, res) => {
 // 1) 回報狀態 （ESP POST 這裡）
 app.post('/status', async (req, res) => {
   const msg = (req.body.message || '').trim();
-  if (!msg) return res.status(400).json({ error: 'empty message' });
+  if (!msg) return res.status(400).json({ error: 'empty' });
+  const entry = JSON.stringify({ ts: Date.now(), message: msg });
 
-  const entry = JSON.stringify({
-    ts: Date.now(),
-    message: msg
-  });
-  // Push 到 list 'status'，只保留最新 50 筆
+  // push 新訊息，保留最新 10 筆
   await redis.lPush('status', entry);
-  await redis.lTrim('status', 0, 49);
+  await redis.lTrim('status', 0, 9);
+  // 設整個 list 在 24 小時後自動過期
+  await redis.expire('status', 24 * 3600);
+
   res.json({ ok: true });
 });
+
 
 // 2) 取得狀態清單
 app.get('/status', async (_, res) => {
